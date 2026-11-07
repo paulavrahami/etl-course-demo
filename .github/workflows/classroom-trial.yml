@@ -1,0 +1,127 @@
+name: Classroom installation trial
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/classroom-trial.yml
+      - requirements*.txt
+      - scripts/setup_classroom.py
+
+permissions:
+  contents: read
+
+jobs:
+  classroom-trial:
+    name: Fresh installation and full exercise
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container:
+      image: mcr.microsoft.com/devcontainers/python:3.12
+      options: --user root
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONUNBUFFERED: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
+      TOKENIZERS_PARALLELISM: "false"
+
+    steps:
+      - name: Check out the classroom project
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Prepare logs and Dagster home
+        run: |
+          mkdir -p trial-logs .dagster_home
+          python - <<'PY'
+          import os, platform
+          from pathlib import Path
+          workspace = Path(os.environ["GITHUB_WORKSPACE"])
+          with open(os.environ["GITHUB_ENV"], "a") as f:
+              f.write(f"DAGSTER_HOME={workspace / '.dagster_home'}\n")
+          info = f"Commit: {os.environ['GITHUB_SHA']}\nPython: {platform.python_version()}\nPlatform: {platform.platform()}\n"
+          Path("trial-logs/environment.log").write_text(info)
+          print(info)
+          PY
+
+      - name: Install dependencies and download the real embedding model
+        id: setup
+        run: |
+          set -o pipefail
+          python scripts/setup_classroom.py 2>&1 | tee trial-logs/setup.log
+
+      - name: Run the real-model classroom preflight
+        id: preflight
+        run: |
+          set -o pipefail
+          python scripts/preflight.py 2>&1 | tee trial-logs/preflight.log
+
+      - name: Run the full exercise solution and checker
+        id: exercise
+        run: |
+          set -o pipefail
+          make exercise-solution 2>&1 | tee trial-logs/exercise.log
+
+      - name: Record actual result counts
+        id: results
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import duckdb
+          import lancedb
+          counts = {}
+          with duckdb.connect("warehouse.duckdb", read_only=True) as db:
+              for table in ("raw.orders", "marts.fct_orders", "raw.reviews", "staging.stg_reviews", "marts.mart_product_reviews"):
+                  counts[table] = db.execute(f"select count(*) from {table}").fetchone()[0]
+              revenue = str(db.execute("select sum(amount) from marts.fct_orders where status = 'paid'").fetchone()[0])
+          vectors = lancedb.connect("lancedb")
+          counts["knowledge_chunks"] = vectors.open_table("kb_chunks").count_rows()
+          counts["review_vectors"] = vectors.open_table("reviews").count_rows()
+          result = {"counts": counts, "paid_revenue": revenue}
+          text = json.dumps(result, ensure_ascii=False, indent=2)
+          Path("trial-logs/results.json").write_text(text + "\n")
+          print(text)
+          PY
+
+      - name: Publish the run summary
+        if: always()
+        env:
+          SETUP_RESULT: ${{ steps.setup.outcome }}
+          PREFLIGHT_RESULT: ${{ steps.preflight.outcome }}
+          EXERCISE_RESULT: ${{ steps.exercise.outcome }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          lines = ["# Classroom installation trial", "", "Fresh GitHub Actions container using the classroom Python 3.12 image.", "This run checks installation and execution; the Codespaces editor and Dagster web UI are not tested.", "", f"Commit: `{os.environ['GITHUB_SHA']}`", "", "| Stage | Outcome |", "|---|---|"]
+          for title, key in (("Dependency installation and model download", "SETUP_RESULT"), ("Preflight with real embeddings", "PREFLIGHT_RESULT"), ("Full exercise and checker", "EXERCISE_RESULT")):
+              lines.append(f"| {title} | {os.environ.get(key, 'unknown')} |")
+          results = Path("trial-logs/results.json")
+          if results.exists():
+              data = json.loads(results.read_text())
+              lines += ["", "## Observed results", "", "| Item | Value |", "|---|---|"]
+              for key, value in data["counts"].items():
+                  lines.append(f"| {key} | {value} |")
+              lines.append(f"| Paid revenue | {data['paid_revenue']} |")
+          lines += ["", "Full output is available in the job logs and the classroom-trial-logs artifact."]
+          text = "\n".join(lines) + "\n"
+          Path("trial-logs").mkdir(exist_ok=True)
+          Path("trial-logs/summary.md").write_text(text)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write(text)
+          PY
+
+      - name: Save trial logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: classroom-trial-logs
+          path: trial-logs/
+          if-no-files-found: warn
+          retention-days: 14
