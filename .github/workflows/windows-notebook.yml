@@ -1,0 +1,109 @@
+name: Windows notebook trial
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/windows-notebook.yml
+      - ETL_Course_Lab_HE.ipynb
+      - requirements*.txt
+      - scripts/check_notebook.py
+      - scripts/generate_data.py
+      - pipelines/**
+      - dbt_project/**
+      - exercises/solution/**
+      - exercises/check_exercise.py
+      - orchestration/**
+      - data/docs/**
+      - .dlt/config.toml
+
+permissions:
+  contents: read
+
+jobs:
+  notebook:
+    name: Windows Python 3.13.12 and real embeddings
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUNBUFFERED: "1"
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: utf-8
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
+      TOKENIZERS_PARALLELISM: "false"
+      GITHUB_OFFLINE: "1"
+      FAKE_EMBEDDINGS: "0"
+
+    steps:
+      - name: Check out the project
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Create a fresh uv environment with Python 3.13.12
+        id: environment
+        run: |
+          New-Item -ItemType Directory -Force -Path notebook-ci-output | Out-Null
+          python -m pip install uv==0.13.5 2>&1 | Tee-Object -FilePath notebook-ci-output/uv-install.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv --version
+          uv venv --python 3.13.12 .venv 2>&1 | Tee-Object -FilePath notebook-ci-output/environment.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & .\.venv\Scripts\python.exe -c "import platform,sys; print(platform.platform()); print(sys.executable); print(platform.python_version()); assert sys.version_info[:3] == (3,13,12)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install the CPU model runtime and notebook dependencies
+        id: dependencies
+        run: |
+          uv pip install --python .venv\Scripts\python.exe torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu 2>&1 | Tee-Object -FilePath notebook-ci-output/torch-install.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv pip install --python .venv\Scripts\python.exe -r requirements-notebook.txt 2>&1 | Tee-Object -FilePath notebook-ci-output/dependencies.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Execute every notebook code cell
+        id: notebook
+        run: |
+          & .\.venv\Scripts\python.exe scripts/check_notebook.py --require-python 3.13.12 --output-dir notebook-ci-output 2>&1 | Tee-Object -FilePath notebook-ci-output/execution.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Publish the run summary
+        if: always()
+        env:
+          ENVIRONMENT_RESULT: ${{ steps.environment.outcome }}
+          DEPENDENCIES_RESULT: ${{ steps.dependencies.outcome }}
+          NOTEBOOK_RESULT: ${{ steps.notebook.outcome }}
+        run: |
+          if (Test-Path notebook-ci-output/summary.md) {
+            Get-Content -Raw -Encoding utf8 notebook-ci-output/summary.md | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          } else {
+            $trialSummary = @"
+          # Windows notebook trial
+
+          Target: Python 3.13.12 in a fresh uv environment.
+
+          | Stage | Outcome |
+          |---|---|
+          | Environment | $env:ENVIRONMENT_RESULT |
+          | Dependencies | $env:DEPENDENCIES_RESULT |
+          | Notebook execution | $env:NOTEBOOK_RESULT |
+
+          The notebook summary was not generated. Inspect the job logs and artifact for the failing installation step.
+          "@
+            $trialSummary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
+      - name: Save the executed notebook and results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-python313-notebook-results
+          path: notebook-ci-output/
+          if-no-files-found: warn
+          retention-days: 14

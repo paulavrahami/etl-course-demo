@@ -17,8 +17,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--core-only", action="store_true", help="Install Python/dlt/dbt/Dagster; skip RAG and model download")
     args = parser.parse_args()
-    if sys.version_info[:2] not in {(3, 11), (3, 12)}:
-        raise SystemExit("Use Python 3.11 or 3.12 (the supplied Codespace uses 3.12).")
+    if sys.version_info[:2] not in {(3, 11), (3, 12), (3, 13)}:
+        raise SystemExit("Use Python 3.11, 3.12 or 3.13 (the Windows notebook uses 3.13.12; the Codespace uses 3.12).")
     (ROOT / ".dagster_home").mkdir(exist_ok=True)
     pip = [sys.executable, "-m", "pip", "install"]
     if not args.core_only:

@@ -11,3 +11,7 @@ dbt_project/dbt_packages/
 .dlt/pipelines/
 tmp*/
 .env
+notebook_lab/
+artifacts/
+.ipynb_checkpoints/
+notebook-ci-output/

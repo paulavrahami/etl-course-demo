@@ -28,6 +28,8 @@ jobs:
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
       HF_HUB_DISABLE_PROGRESS_BARS: "1"
       TOKENIZERS_PARALLELISM: "false"
+      DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
+      HF_HUB_DISABLE_TELEMETRY: "1"
 
     steps:
       - name: Check out the classroom project
@@ -42,6 +44,7 @@ jobs:
           import os, platform
           from pathlib import Path
           workspace = Path(os.environ["GITHUB_WORKSPACE"])
+          (workspace / ".dagster_home" / "dagster.yaml").write_text("telemetry:\n  enabled: false\n")
           with open(os.environ["GITHUB_ENV"], "a") as f:
               f.write(f"DAGSTER_HOME={workspace / '.dagster_home'}\n")
           info = f"Commit: {os.environ['GITHUB_SHA']}\nPython: {platform.python_version()}\nPlatform: {platform.platform()}\n"

@@ -5,7 +5,9 @@
 סביבת הדגמה לקורס. עיבוד הנתונים והחיפוש רצים מקומית; התקנת החבילות והורדת מודל ה־embeddings דורשות רשת בפעם הראשונה. אפשר לעבוד גם ב־GitHub Codespaces עם חשבון GitHub.
 החנות הדמיונית **ShopIL** מייצרת נתונים מלוכלכים בכוונה (כפילויות, תאריכים בשני פורמטים, סכומים כטקסט ו-JSON מקונן), ומסמכי ידע בעברית ל-RAG.
 
-**לסטודנטים:** מתחילים ב־[`STUDENT_QUICKSTART.md`](STUDENT_QUICKSTART.md). **למרצה:** מדריך ההדגמה ב־[`INSTRUCTOR_GUIDE.md`](INSTRUCTOR_GUIDE.md); מצב הרצת הניסיון ב־[`TRIAL_REPORT.md`](TRIAL_REPORT.md).
+**להתחלה ב־Windows עם Cursor ו־uv:** פותחים את [`WINDOWS_UV_START.md`](WINDOWS_UV_START.md). המחברת [`ETL_Course_Lab_HE.ipynb`](ETL_Course_Lab_HE.ipynb) כבר כלולה במאגר, לצד קובצי הפרויקט.
+
+**לסטודנטים:** מדריך ההתחלה הוא [`STUDENT_QUICKSTART.md`](STUDENT_QUICKSTART.md). **למרצה:** מדריך ההדגמה ב־[`INSTRUCTOR_GUIDE.md`](INSTRUCTOR_GUIDE.md); מצב הרצת הניסיון ב־[`TRIAL_REPORT.md`](TRIAL_REPORT.md).
 
 ```
  מקורות                 E/L              אחסון (DuckDB)                    T                    צריכה
@@ -22,7 +24,29 @@
 
 ## התקנה
 
-### אפשרות א': GitHub Codespaces (מומלץ לכיתה)
+### אפשרות א: Windows, Cursor ו־uv עם Python 3.13.12
+
+פותחים ב־Cursor את תיקיית הפרויקט. אם מתחילים בעותק חדש, משכפלים לתיקייה פנויה; אם כבר יש עותק מעודכן במחשב, משתמשים בו. ההוראות המלאות להורדה ולעדכון נמצאות ב־[`WINDOWS_UV_START.md`](WINDOWS_UV_START.md).
+
+בטרמינל שבשורש הפרויקט, **רק אם עדיין אין סביבה לפרויקט**, יוצרים אותה:
+
+```powershell
+uv venv --python 3.13.12
+```
+
+מתקינים את החבילות באותה סביבה:
+
+```powershell
+uv pip install --python .venv\Scripts\python.exe torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu
+uv pip install --python .venv\Scripts\python.exe -r requirements-notebook.txt
+```
+
+פותחים את `ETL_Course_Lab_HE.ipynb`, לוחצים **Select Kernel**, בוחרים **Python Environments** ואת `.venv\Scripts\python.exe`, ומריצים תא אחר תא באמצעות **Shift+Enter**. המחברת מציגה נתוני מקור, תוצאות ובדיקות בכל שלב, ושומרת את תוצרי ההרצה בתיקייה נפרדת בתוך `notebook_lab`. הוראות המחברת משתמשות ישירות ב־uv להתקנת החבילות.
+
+המחברת כוללת גם פתרון מלא למרצה בחלק הביקורות. סטודנטים שמבצעים את התרגיל בעצמם עוצרים לפני חלק הפתרון. סביבת Codespaces ומסלולי הטרמינל הקיימים של Python 3.11 ו־3.12 נשארים זמינים בהמשך.
+
+### אפשרות ב: GitHub Codespaces
+
 1. פותחים את [מאגר הקורס](https://github.com/paulavrahami/etl-course-demo) ונכנסים לחשבון GitHub האישי.
 2. לוחצים **Code → Codespaces → Create codespace on main**.
 3. ממתינים לסיום ההתקנה האוטומטית. הסביבה מתקינה חבילות, מייצרת נתונים ומורידה מודל embeddings. הזמן תלוי ברשת ובמחשב; מבצעים זאת לפני השיעור.
@@ -30,7 +54,7 @@
 
 אפשר להגיע ישירות לעמוד יצירת הסביבה דרך [קישור הפתיחה](https://codespaces.new/paulavrahami/etl-course-demo). כל סטודנט או זוג יוצר סביבת עבודה משלו.
 
-### אפשרות ב': התקנה מקומית (Python 3.11 או 3.12)
+### אפשרות ג: התקנה מקומית דרך הטרמינל עם Python 3.11 או 3.12
 
 מורידים את הקוד באמצעות **Code > Download ZIP** ומחלצים אותו, או משכפלים באמצעות Git:
 
@@ -66,6 +90,7 @@ python scripts/preflight.py
 הכל ברצף: `make demo`. מתחילים מאפס: `make clean`.
 
 **טיפים להדגמה חיה**
+
 - **אינקרמנטליות:** מריצים `make dlt` פעמיים. בפעם השנייה ב-orders נטענות 0 שורות.
 - **Schema evolution:** מוסיפים עמודה חדשה ל-`orders.csv`, ומעדכנים `updated_at` של רשומה אחת לערך מאוחר מנקודת ההמשך שכבר נשמרה. מריצים `make dlt` ומציגים את העמודה החדשה. הוספת עמודה ללא שינוי ה־cursor לא תעביר מחדש רשומות שסוננו. לפני חזרה לנתוני הבסיס מריצים `make clean` ואז `make data`.
 - **בדיקה שנכשלת:** מוחקים את ה-`qualify` מ-`stg_customers.sql` ומריצים `make dbt`. בדיקת ה-unique נכשלת.
@@ -74,10 +99,15 @@ python scripts/preflight.py
 - **API אמיתי:** `python pipelines/02_dlt_pipeline.py` (בלי `--offline`). בכיתה כדאי להגדיר `GITHUB_TOKEN`, אחרת המגבלה היא 60 קריאות לשעה לכל כתובת IP.
 
 ## תרגיל הכיתה
+
 ראו [`exercises/EXERCISE.md`](exercises/EXERCISE.md). מתחילים עם `make exercise-start` ובודקים עם `make check`.
 
 ## מבנה התיקייה
+
 ```
+ETL_Course_Lab_HE.ipynb  מחברת הרצה, בדיקות ותוצאות
+WINDOWS_UV_START.md      התחלה ב-Windows עם Cursor ו-uv
+requirements-notebook.txt חבילות הפרויקט והתוספות למחברת
 data/raw/            נתוני מקור (נוצרים ע"י scripts/generate_data.py)
 data/docs/           מסמכי ידע ל-RAG
 pipelines/           01 Python טהור | 02 dlt | 03 RAG | 04-05 תרגיל
@@ -88,6 +118,7 @@ INSTRUCTOR_GUIDE.md  מדריך מרצה: הרצת ניסיון ופלטים צ�
 ```
 
 ## תקלות נפוצות
+
 | תקלה | פתרון |
 |------|-------|
 | `IO Error: Could not set lock on file warehouse.duckdb` | יש תהליך אחר שמחזיק את הקובץ (DBeaver, notebook או Dagster). סוגרים אותו ומריצים שוב. |
