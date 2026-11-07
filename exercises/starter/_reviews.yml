@@ -1,0 +1,11 @@
+version: 2
+
+# TODO: הוסיפו בדיקות:
+#   stg_reviews.review_id          -> unique, not_null
+#   stg_reviews.rating             -> accepted_values [1,2,3,4,5]   (רמז: quote: false)
+#   stg_reviews.product_id         -> relationships ל-stg_products
+#   mart_product_reviews.product_id-> unique, not_null
+
+models:
+  - name: stg_reviews
+  - name: mart_product_reviews

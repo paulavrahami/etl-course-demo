@@ -1,0 +1,11 @@
+-r requirements-core.txt
+
+# scripts/setup_classroom.py installs the CPU build of torch first on Linux/Windows.
+# A plain pip install -r requirements.txt does not guarantee a CPU-only torch build.
+torch==2.15.0
+lancedb==0.41.0
+sentence-transformers==6.2.0
+transformers==5.22.2
+huggingface-hub==2.4.0
+socksio==1.0.0
+anthropic==2.6.0

@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.duckdb
+*.duckdb.wal
+warehouse_basic.db
+lancedb/
+dbt_project/target/
+dbt_project/logs/
+dbt_project/dbt_packages/
+.dagster_home/
+.dlt/pipelines/
+tmp*/
+.env
